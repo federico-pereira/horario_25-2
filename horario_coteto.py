@@ -86,21 +86,14 @@ def compute_schedules(courses, ranking, min_days_free, banned,
     combos = list(product(*courses.values()))
     metrics = []
     for combo in combos:
-        # 1) No overlapping classes
         if any(overlaps(a, b) for a in combo for b in combo if a != b):
             continue
-
-        # 2) Minimum free days
         days_occ = {d for sec in combo for d, _, _ in sec.meetings}
         if (5 - len(days_occ)) < min_days_free:
             continue
-
-        # 3) Vetoed teachers
         veto_cnt = sum(sec.teacher in banned for sec in combo)
         if hard_veto and veto_cnt > 0:
             continue
-
-        # 4) Time-window violations
         win_vio = 0
         for sec in combo:
             for _, s, e in sec.meetings:
@@ -108,18 +101,13 @@ def compute_schedules(courses, ranking, min_days_free, banned,
                     win_vio += 1
         if hard_window and win_vio > 0:
             continue
-
-        # compute metrics
         avg_rank  = sum(ranking.get(sec.teacher, len(ranking)) for sec in combo) / len(combo)
         win_gap   = compute_window(combo)
         free_days = 5 - len(days_occ)
         metrics.append((combo, avg_rank, win_gap, free_days, veto_cnt, win_vio))
-
     if not metrics:
         return []
-
-    # normalize maxima and avoid zeros
-    mx = {i: max(vals) if max(vals) > 0 else 1
+    mx = {i: (max(vals) if max(vals) > 0 else 1)
           for i, vals in enumerate(zip(*[m[1:] for m in metrics]))}
     total_w = sum(weights.values())
     scored = []
@@ -137,11 +125,13 @@ def compute_schedules(courses, ranking, min_days_free, banned,
             weights['window'] * n5
         ) / total_w
         scored.append((score, combo))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored
 
-    # -------------------
-
+# -------------------
 # Visualization
 # -------------------
+
 def visualize_schedule(combo):
     DAY_MAP = {'Lu':0,'Ma':1,'Mi':2,'Ju':3,'Vi':4}
     labels  = ["Lunes","Martes","Mié","Jue","Vie"]
@@ -152,7 +142,6 @@ def visualize_schedule(combo):
     ax.set_xlim(0, 5)
     ax.set_ylabel("Hora")
     ax.grid(True, which='both', linestyle='--', linewidth=0.5)
-
     colors, cmap = plt.cm.tab20.colors, {}
     for sec in combo:
         if sec.course not in cmap:
@@ -184,12 +173,10 @@ def main():
         if not uploaded:
             st.stop()
         df = pd.read_csv(uploaded)
-
     secs = build_sections(df)
     courses = defaultdict(list)
     for sec in secs:
         courses[sec.course].append(sec)
-
     sel = st.sidebar.multiselect("Asignaturas", sorted(courses), sorted(courses))
     sub = {c: courses[c] for c in sel}
     teachers = sorted({sec.teacher for secs in sub.values() for sec in secs})
@@ -201,13 +188,12 @@ def main():
     end_pref   = st.sidebar.time_input("Fin preferido",  time(18,0))
     st.sidebar.header("Pesos de criterio")
     weights = {
-        'rank':   st.sidebar.slider("Importancia de docentes selccionados",1.0,5.0,3.0),
-        'win':    st.sidebar.slider("Tamaño de la ventana entre ramos (importancia)",1.0,5.0,3.0),
-        'off':    st.sidebar.slider("Importancia de Días libres",1.0,5.0,3.0),
-        'veto':   st.sidebar.slider("Importancia de Veto a docente",1.0,5.0,3.0),
-        'window': st.sidebar.slider("Importanta del rango de horario",1.0,5.0,3.0)
+        'rank':   st.sidebar.slider("Ranking",1.0,5.0,3.0),
+        'win':    st.sidebar.slider("Ventana pausa",1.0,5.0,3.0),
+        'off':    st.sidebar.slider("Días libres",1.0,5.0,3.0),
+        'veto':   st.sidebar.slider("Veto",1.0,5.0,3.0),
+        'window': st.sidebar.slider("Ventana Horaria",1.0,5.0,3.0)
     }
-
     if st.sidebar.button("Generar Horarios"):
         scored = compute_schedules(sub, ranking, min_free, banned, start_pref, end_pref, weights)
         if not scored:
