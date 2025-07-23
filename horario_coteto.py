@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import unicodedata
@@ -225,4 +226,4 @@ def visualize_streamlit(sections):
 
 if __name__ == '__main__':
     main()
-
+```
