@@ -218,10 +218,11 @@ def main():
 
     st.sidebar.header("Pesos de Criterio")
     weights = {
-        'rank':   st.sidebar.slider("Importancia de docente seleccionados", 1.0, 5.0, 3.0),
-        'win':    st.sidebar.slider("Ventana grande entre ramos",           1.0, 5.0, 3.0),
-        'off':    st.sidebar.slider("Importancia de dias libres",           1.0, 5.0, 3.0),
-        'veto':   st.sidebar.slider("Importancia de veto de docente",       1.0, 5.0, 3.0),
+        'rank':   st.sidebar.slider("Importancia de docente seleccionados",         1.0, 5.0, 3.0),
+        'win':    st.sidebar.slider("Ventana grande entre ramos",   1.0, 5.0, 3.0),
+        'off':    st.sidebar.slider("Importancia de dias libres",     1.0, 5.0, 3.0),
+        'veto':   st.sidebar.slider("Importancia de veto de docente",            1.0, 5.0, 3.0),
+        'window': st.sidebar.slider("Importancia de rango de horario", 1.0, 5.0, 3.0),
     }
 
     # 3) Generate schedules
