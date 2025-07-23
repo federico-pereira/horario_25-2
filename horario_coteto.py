@@ -201,11 +201,11 @@ def main():
     end_pref   = st.sidebar.time_input("Fin preferido",  time(18,0))
     st.sidebar.header("Pesos de criterio")
     weights = {
-        'rank':   st.sidebar.slider("Ranking",1.0,5.0,3.0),
-        'win':    st.sidebar.slider("Ventana",1.0,5.0,3.0),
-        'off':    st.sidebar.slider("Días libres",1.0,5.0,3.0),
-        'veto':   st.sidebar.slider("Veto",1.0,5.0,3.0),
-        'window': st.sidebar.slider("Ventana Horaria",1.0,5.0,3.0)
+        'rank':   st.sidebar.slider("Importancia de docentes selccionados",1.0,5.0,3.0),
+        'win':    st.sidebar.slider("Tamaño de la ventana entre ramos (importancia)",1.0,5.0,3.0),
+        'off':    st.sidebar.slider("Importancia de Días libres",1.0,5.0,3.0),
+        'veto':   st.sidebar.slider("Importancia de Veto a docente",1.0,5.0,3.0),
+        'window': st.sidebar.slider("Importanta del rango de horario",1.0,5.0,3.0)
     }
 
     if st.sidebar.button("Generar Horarios"):
