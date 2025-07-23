@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 st.set_page_config(layout="wide")
-st.title("Generador de Horarios - Ventana Horaria Preferida")
+st.title("Generador de Horarios - UAI")
 
 # -------------------
 # Helpers & Parsers
