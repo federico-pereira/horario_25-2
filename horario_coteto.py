@@ -6,6 +6,7 @@ from itertools import product
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import math
 
 st.set_page_config(layout="wide")
 st.title("Generador de Horarios - UAI")
@@ -78,10 +79,10 @@ def compute_window(combo):
     return max_gap
 
 
-def compute_schedules(courses, ranking, min_days_free, banned,
-                      start_pref, end_pref, weights):
+def compute_schedules(courses, ranking, min_days_free, banned, start_pref, end_pref, weights):
     hard_window = weights['window'] == 5
     hard_veto   = weights['veto']   == 5
+    hard_win    = weights['win']    == 5
 
     combos = list(product(*courses.values()))
     metrics = []
@@ -94,37 +95,54 @@ def compute_schedules(courses, ranking, min_days_free, banned,
         veto_cnt = sum(sec.teacher in banned for sec in combo)
         if hard_veto and veto_cnt > 0:
             continue
-        win_vio = 0
-        for sec in combo:
-            for _, s, e in sec.meetings:
-                if s < start_pref or e > end_pref:
-                    win_vio += 1
-        if hard_window and win_vio > 0:
+        vio_pref = sum(
+            1 for sec in combo for _, s, e in sec.meetings
+            if s < start_pref or e > end_pref
+        )
+        if hard_window and vio_pref > 0:
             continue
+        gap = compute_window(combo)
+        if hard_win and gap > 0:
+            continue
+
         avg_rank  = sum(ranking.get(sec.teacher, len(ranking)) for sec in combo) / len(combo)
-        win_gap   = compute_window(combo)
         free_days = 5 - len(days_occ)
-        metrics.append((combo, avg_rank, win_gap, free_days, veto_cnt, win_vio))
+
+        metrics.append((combo, avg_rank, gap, free_days, veto_cnt, vio_pref))
+
     if not metrics:
         return []
-    mx = {i: (max(vals) if max(vals) > 0 else 1)
-          for i, vals in enumerate(zip(*[m[1:] for m in metrics]))}
+
+    # hallamos máximos para normalizar
+    max_vals = {
+        'rank': max(m[1] for m in metrics) or 1,
+        'win':  max(m[2] for m in metrics) or 1,
+        'off':  max(m[3] for m in metrics) or 1,
+        'veto': max(m[4] for m in metrics) or 1,
+        'window': max(m[5] for m in metrics) or 1
+    }
+
     total_w = sum(weights.values())
     scored = []
+
     for combo, avg, gap, free, veto, vio in metrics:
-        n1 = 1 - (avg / mx[0])
-        n2 = 1 - (gap / mx[1])
-        n3 =  free / mx[2]
-        n4 = 1 - (veto / mx[3])
-        n5 = 1 - (vio  / mx[4])
-        score = (
-            weights['rank']   * n1 +
-            weights['win']    * n2 +
-            weights['off']    * n3 +
-            weights['veto']   * n4 +
-            weights['window'] * n5
-        ) / total_w
+        # Normalizamos entre 0 y 1
+        n = {
+            'rank':   1 - (avg   / max_vals['rank']),
+            'win':    1 - (gap   / max_vals['win']),
+            'off':    free    / max_vals['off'],
+            'veto':   1 - (veto / max_vals['veto']),
+            'window':1 - (vio   / max_vals['window'])
+        }
+        # Geometric weighted mean
+        log_sum = 0.0
+        for k, w in weights.items():
+            # evitamos log(0)
+            val = max(n[k], 1e-6)
+            log_sum += (w / total_w) * math.log(val)
+        score = math.exp(log_sum)
         scored.append((score, combo))
+
     scored.sort(key=lambda x: x[0], reverse=True)
     return scored
 
