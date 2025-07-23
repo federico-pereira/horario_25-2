@@ -86,17 +86,21 @@ def compute_schedules(courses, ranking, min_days_free, banned,
     combos = list(product(*courses.values()))
     metrics = []
     for combo in combos:
+        # 1) No overlapping classes
         if any(overlaps(a, b) for a in combo for b in combo if a != b):
             continue
 
+        # 2) Minimum free days
         days_occ = {d for sec in combo for d, _, _ in sec.meetings}
         if (5 - len(days_occ)) < min_days_free:
             continue
 
+        # 3) Vetoed teachers
         veto_cnt = sum(sec.teacher in banned for sec in combo)
         if hard_veto and veto_cnt > 0:
             continue
 
+        # 4) Time-window violations
         win_vio = 0
         for sec in combo:
             for _, s, e in sec.meetings:
@@ -105,6 +109,7 @@ def compute_schedules(courses, ranking, min_days_free, banned,
         if hard_window and win_vio > 0:
             continue
 
+        # compute metrics
         avg_rank  = sum(ranking.get(sec.teacher, len(ranking)) for sec in combo) / len(combo)
         win_gap   = compute_window(combo)
         free_days = 5 - len(days_occ)
@@ -113,7 +118,9 @@ def compute_schedules(courses, ranking, min_days_free, banned,
     if not metrics:
         return []
 
-    mx = {i: max(vals) for i, vals in enumerate(zip(*[m[1:] for m in metrics]))}
+    # normalize maxima and avoid zeros
+    mx = {i: max(vals) if max(vals) > 0 else 1
+          for i, vals in enumerate(zip(*[m[1:] for m in metrics]))}
     total_w = sum(weights.values())
     scored = []
     for combo, avg, gap, free, veto, vio in metrics:
@@ -130,9 +137,9 @@ def compute_schedules(courses, ranking, min_days_free, banned,
             weights['window'] * n5
         ) / total_w
         scored.append((score, combo))
-    return sorted(scored, key=lambda x: x[0], reverse=True)
 
-# -------------------
+    # -------------------
+
 # Visualization
 # -------------------
 def visualize_schedule(combo):
