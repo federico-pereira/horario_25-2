@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 st.set_page_config(layout="wide")
-st.title("Generador de Horarios - Slider Días Libres con Hard Lock")
+st.title("Generador de Horarios - UAI")
 
 # Helpers
 DAY_FULL = {
@@ -91,7 +91,6 @@ def compute_schedules(courses, ranking, min_days_free, banned, slot, weights):
     all_combos = list(product(*courses.values()))
     metrics = []
     for combo in all_combos:
-        # overlap
         if any(overlaps(a,b) for a in combo for b in combo if a!=b):
             continue
 
@@ -99,12 +98,10 @@ def compute_schedules(courses, ranking, min_days_free, banned, slot, weights):
         win      = compute_window(combo)
         occupied = {d for sec in combo for d,_,_ in sec.meetings}
         days_free = 5 - len(occupied)
-        # hard days free: still enforced by slider
         if days_free < min_days_free:
             continue
 
         veto_cnt = sum(sec.teacher in banned for sec in combo)
-        # hard veto
         if hard_veto and veto_cnt > 0:
             continue
 
@@ -115,13 +112,11 @@ def compute_schedules(courses, ranking, min_days_free, banned, slot, weights):
                     slot_vio += 1
                 if slot=='Tarde' and not (s>=time(14,31)):
                     slot_vio += 1
-        # hard slot
         if hard_slot and slot_vio > 0:
             continue
 
         metrics.append((combo, avg_rank, win, days_free, veto_cnt, slot_vio))
 
-    # compute maxima
     max_vals = {
         'rank': max((m[1] for m in metrics), default=1),
         'win':  max((m[2] for m in metrics), default=1),
@@ -168,30 +163,41 @@ def visualize_schedule(combo):
             ax.text(x+0.5,y0+h/2,f"{sec.cid}\n{sec.course}",ha='center',va='center',fontsize=7)
     st.pyplot(fig)
 
-# UI
-uploaded = st.file_uploader("Sube tu CSV", type="csv")
-if uploaded:
-    df = pd.read_csv(uploaded)
+def main():
+    # 1) Remote-first CSV load
+    CSV_URL = "https://raw.githubusercontent.com/federico-pereira/horario_25-2/main/horario.csv"
+    try:
+        df = pd.read_csv(CSV_URL)
+        st.success("✅ Cargado CSV desde GitHub")
+    except Exception as e:
+        st.warning(f"No pude cargar el CSV remoto: {e}")
+        uploaded = st.file_uploader("Sube tu CSV", type="csv")
+        if not uploaded:
+            st.stop()
+        df = pd.read_csv(uploaded)
+
+    # 2) Build courses
     courses = build_courses(df)
 
+    # Sidebar UI
     st.sidebar.header("Asignaturas")
     names = sorted(courses.keys())
-    selected = st.sidebar.multiselect("Asignaturas", names, default=names[:5])
-    sub = {c:courses[c] for c in selected}
+    selected = st.sidebar.multiselect("Asignaturas", names, default=names)
+    sub = {c: courses[c] for c in selected}
 
     st.sidebar.header("Ranking Docentes")
-    teachers = sorted({str(sec.teacher) for secs in sub.values() for sec in secs})
-    ranking = st.sidebar.multiselect("Orden (mover)", teachers, default=teachers)
-    ranking_map = {t:i for i,t in enumerate(ranking)}
+    teachers = sorted({sec.teacher for secs in sub.values() for sec in secs})
+    ranking = st.sidebar.multiselect("Orden (mejor primero)", teachers, default=teachers)
+    ranking_map = {t: i for i, t in enumerate(ranking)}
 
     st.sidebar.header("Cantidad de Días Libres")
-    min_free = st.sidebar.slider("Días libres (0-5)", 0, 5, 0)
+    min_free = st.sidebar.slider("Días libres (0–5)", 0, 5, 0)
 
     st.sidebar.header("Docentes Vetados")
     banned = st.sidebar.multiselect("Veto", teachers)
 
     st.sidebar.header("Franja Horaria")
-    slot = st.sidebar.selectbox("Franja", ["Mañana","Tarde","Ambos"])
+    slot = st.sidebar.selectbox("Franja", ["Ambos", "Mañana", "Tarde"])
 
     st.sidebar.header("Pesos")
     weights = {
@@ -202,6 +208,7 @@ if uploaded:
         'slot': st.sidebar.slider("Franja", 1.0, 5.0, 3.0)
     }
 
+    # 3) Generate on button
     if st.sidebar.button("Generar Horarios"):
         scored = compute_schedules(sub, ranking_map, min_free, banned, slot, weights)
         if not scored:
@@ -216,3 +223,5 @@ if uploaded:
             st.header("Mejor Horario")
             visualize_schedule(scored[0][1])
 
+if __name__ == "__main__":
+    main()
