@@ -10,10 +10,8 @@ import urllib.error
 st.set_page_config(layout="wide", page_title="Generador de Horario")
 
 # 2) URL “raw” de tu CSV en GitHub (ajusta si tu CSV está en otra ruta o en otra rama)
-CSV_URL = (
-    "https://raw.githubusercontent.com/"
-    "federico-pereira/horario_25-2/main/data/horario.csv"
-)
+CSV_URL = "https://raw.githubusercontent.com/federico-pereira/horario_25-2/main/horario.csv"
+
 
 @st.cache_data
 def load_data_remote(url: str) -> pd.DataFrame:
