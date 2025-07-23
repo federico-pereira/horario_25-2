@@ -3,34 +3,57 @@ import pandas as pd
 from datetime import datetime, time
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from itertools import product
 from collections import defaultdict
 
-# Configuración de la página
+# 1) Configuración de la página
 st.set_page_config(layout="wide", page_title="Generador de Horario")
 
-# URL raw de tu CSV en GitHub
-CSV_URL = "https://raw.githubusercontent.com/federico-pereira/horario_25-2/main/horario%20UAI%2025-2.csv"
+# 2) URL “raw” de tu CSV en GitHub
+CSV_URL = (
+    "https://raw.githubusercontent.com/"
+    "federico-pereira/horario_25-2/main/data/horario.csv"
+)
 
 @st.cache_data
 def load_data(url: str) -> pd.DataFrame:
-    """Descarga y retorna el DataFrame del CSV."""
     return pd.read_csv(url)
 
-# Carga de datos
+# 3) Carga y muestra columnas para que verifiques nombres
 df = load_data(CSV_URL)
+st.write("📋 Columnas detectadas en tu CSV:", df.columns.tolist())
 
-# --- Ajusta según tus nombres de columna ---
-# Convierte cadenas "HH:MM" a objetos datetime.time
-df['start_time'] = df['start_time'].apply(lambda t: datetime.strptime(t, "%H:%M").time())
-df['end_time']   = df['end_time'].apply(lambda t: datetime.strptime(t, "%H:%M").time())
+# 4) Mapea nombres reales a “section_id”, “course_name”, etc.
+#    **AJUSTA** este diccionario según las columnas que mostró arriba
+COLUMN_MAP = {
+    # Ejemplo para un CSV en español:
+    # 'SSEC':        'section_id',
+    # 'Asignatura':  'course_name',
+    # 'Día':         'day',
+    # 'Hora Inicio': 'start_time',
+    # 'Hora Fin':    'end_time',
+    # 'Docente':     'teacher',
+}
+if COLUMN_MAP:
+    df = df.rename(columns=COLUMN_MAP)
 
-# Clase Section idéntica a la tuya
+# 5) Define aquí los nombres internos que usaremos
+SECTION_COL = "section_id"
+COURSE_COL  = "course_name"
+DAY_COL     = "day"
+START_COL   = "start_time"
+END_COL     = "end_time"
+TEACHER_COL = "teacher"
+
+# 6) Convertir “HH:MM” → datetime.time
+df[START_COL] = df[START_COL].apply(lambda t: datetime.strptime(t, "%H:%M").time())
+df[END_COL]   = df[END_COL].apply(lambda t: datetime.strptime(t, "%H:%M").time())
+
+# 7) Clase Section (igual que antes)
 class Section:
     def __init__(self, cid, course, meetings, teacher):
         self.cid      = cid
         self.course   = course
-        self.meetings = meetings   # lista de tuplas (día, inicio, fin)
+        self.meetings = meetings  # [(day, start, end), ...]
         self.teacher  = teacher
 
     def __str__(self):
@@ -38,32 +61,31 @@ class Section:
                           for d, s, e in self.meetings)
         return f"[{self.cid}] {self.course} — {times} — {self.teacher}"
 
-# Orden y abreviatura de días para el eje X
+# 8) Orden de días para el gráfico
 DAY_ORDER = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
 DAY_SHORT = {d: d[:2] for d in DAY_ORDER}
 
-# Construcción de la lista de secciones
+# 9) Construir lista de secciones
 sections = []
 for _, row in df.iterrows():
-    cid     = row['section_id']
-    course  = row['course_name']
-    teacher = row['teacher']
-    meetings= [(row['day'], row['start_time'], row['end_time'])]
-    sections.append(Section(cid, course, meetings, teacher))
+    meetings = [(row[DAY_COL], row[START_COL], row[END_COL])]
+    sections.append(Section(
+        cid     = row[SECTION_COL],
+        course  = row[COURSE_COL],
+        meetings= meetings,
+        teacher = row[TEACHER_COL]
+    ))
 
-# --- Dibujo del horario ---
+# 10) Dibujo del horario con matplotlib
 fig, ax = plt.subplots(figsize=(12, 6))
-
-# Configuración de ejes
 ax.set_xticks(range(len(DAY_ORDER)))
 ax.set_xticklabels([DAY_SHORT[d] for d in DAY_ORDER])
-ax.set_ylim(7, 22)  # horario desde 7:00 hasta 22:00
+ax.set_ylim(7, 22)
 ax.set_xlim(-0.5, len(DAY_ORDER)-0.5)
 ax.set_ylabel("Hora del día")
 ax.set_title("Horario de Clases")
-ax.grid(axis='y', linestyle='--', alpha=0.5)
+ax.grid(axis="y", linestyle="--", alpha=0.5)
 
-# Dibujar cada sección como un rectángulo
 for sec in sections:
     for day, start, end in sec.meetings:
         if day not in DAY_ORDER:
@@ -71,26 +93,15 @@ for sec in sections:
         x = DAY_ORDER.index(day)
         y1 = start.hour + start.minute/60
         y2 = end.hour   + end.minute/60
-        height = y2 - y1
-
         rect = patches.Rectangle(
-            (x - 0.4, y1),    # (x, y)
-            0.8,              # ancho
-            height,           # alto
-            edgecolor='black',
-            facecolor='skyblue',
-            alpha=0.7
+            (x-0.4, y1), 0.8, y2-y1,
+            edgecolor="black", facecolor="skyblue", alpha=0.7
         )
         ax.add_patch(rect)
         ax.text(
-            x, 
-            y1 + height/2, 
-            sec.course, 
-            ha='center', 
-            va='center', 
-            fontsize=9,
-            wrap=True
+            x, y1 + (y2-y1)/2, sec.course,
+            ha="center", va="center", fontsize=9, wrap=True
         )
 
-# Mostrar con Streamlit
+# 11) Mostrar el plot en Streamlit
 st.pyplot(fig)
