@@ -180,7 +180,7 @@ def main():
     sel = st.sidebar.multiselect("Asignaturas", sorted(courses), sorted(courses))
     sub = {c: courses[c] for c in sel}
     teachers = sorted({sec.teacher for secs in sub.values() for sec in secs})
-    rank_sel = st.sidebar.multiselect("Ranking", teachers, teachers)
+    rank_sel = st.sidebar.multiselect("Docentes Preferidos", teachers, teachers)
     ranking = {t: i for i, t in enumerate(rank_sel)}
     min_free = st.sidebar.slider("Días libres (0–5)", 0, 5, 0)
     banned = st.sidebar.multiselect("Docentes vetados", teachers)
