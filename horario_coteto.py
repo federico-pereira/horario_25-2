@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 st.set_page_config(layout="wide")
-st.title("Generador de Horarios - Similitud a Preferencias")
+st.title("Generador de Horarios - UAI")
 
 # -------------------
 # Helpers & Parsers
@@ -160,10 +160,26 @@ def visualize_schedule(combo):
 # Streamlit UI
 # -------------------
 def main():
-    uploaded = st.file_uploader("Sube tu CSV", type="csv")
-    if not uploaded:
-        st.stop()
-    df = pd.read_csv(uploaded)
+    CSV_URL = "https://raw.githubusercontent.com/federico-pereira/horario_25-2/main/horario.csv"
+    st.sidebar.header("Carga de CSV")
+    source = st.sidebar.radio("Origen CSV", ["GitHub", "Local", "Subir"])
+    if source == "GitHub":
+        try:
+            df = pd.read_csv(CSV_URL)
+            st.sidebar.success("✅ CSV cargado desde GitHub")
+        except Exception as e:
+            st.sidebar.error(f"No se pudo cargar remoto: {e}")
+            source = "Local"
+    if source == "Local":
+        local_files = [f for f in os.listdir('.') if f.lower().endswith('.csv')]
+        csv_choice = st.sidebar.selectbox("Selecciona un CSV local", local_files)
+        df = pd.read_csv(csv_choice)
+    if source == "Subir":
+        uploaded = st.sidebar.file_uploader("Sube tu CSV", type="csv")
+        if not uploaded:
+            st.stop()
+        df = pd.read_csv(uploaded)
+        
     secs = build_sections(df)
     courses = defaultdict(list)
     for sec in secs:
@@ -183,11 +199,11 @@ def main():
 
     st.sidebar.header("Pesos de criterio")
     weights = {
-        'rank':   st.sidebar.slider("Importancia ranking", 1.0,5.0,3.0),
-        'win':    st.sidebar.slider("Importancia gap",     1.0,5.0,3.0),
-        'off':    st.sidebar.slider("Importancia free days",1.0,5.0,3.0),
-        'veto':   st.sidebar.slider("Importancia veto",    1.0,5.0,3.0),
-        'window': st.sidebar.slider("Importancia horario", 1.0,5.0,3.0)
+        'rank':   st.sidebar.slider("Importancia Profesores favoritos", 1.0,5.0,3.0),
+        'win':    st.sidebar.slider("Importancia Tamaño de ventana",     1.0,5.0,3.0),
+        'off':    st.sidebar.slider("Importancia Dias libres",1.0,5.0,3.0),
+        'veto':   st.sidebar.slider("Importancia Profesores vetados",    1.0,5.0,3.0),
+        'window': st.sidebar.slider("Importancia Rango de horario", 1.0,5.0,3.0)
     }
 
     if st.sidebar.button("Generar"):
