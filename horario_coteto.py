@@ -84,25 +84,78 @@ def compute_window(combo):
             max_gap = max(max_gap, gap)
     return max_gap
 
-def compute_schedules(courses, ranking, min_days_free, banned, start_pref, end_pref, weights):
-    # Generate all combos
-    combos = list(product(*courses.values()))
-    sims = []
-    # Compute all metrics
-    raw = []
-    for combo in combos:
-        if any(overlaps(a, b) for a in combo for b in combo if a!=b):
+from itertools import product
+import math
+
+def compute_schedules(courses, ranking, min_free, banned,
+                      pref_start: time, pref_end: time, weights):
+    """
+    Devuelve [(score, combo), …] ordenado por score desc.
+    score = media aritmética ponderada de:
+      - rank: 1 - avg_rank/max_rank
+      - win:  1 - gap/max_gap
+      - off:  free_days/max_free
+      - veto: 1 - veto_cnt/max_veto
+      - window:1 - vio_cnt/max_vio
+    Con bloqueo total si cualquiera de los criterios “hard” (peso=5) se viola.
+    """
+    hard_window = (weights['window'] == 5)
+    hard_veto   = (weights['veto']   == 5)
+
+    # 1) Generar combinaciones y calcular métricas brutas
+    metrics = []
+    for combo in product(*courses.values()):
+        # a) solapamientos
+        if any(overlaps(a,b) for a in combo for b in combo if a!=b):
             continue
+        # b) días libres
         days_occ = {d for sec in combo for d,_,_ in sec.meetings}
         free_days = 5 - len(days_occ)
+        if free_days < min_free:
+            continue
+        # c) vetos
         veto_cnt = sum(sec.teacher in banned for sec in combo)
-        vio_pref = sum(1 for sec in combo for _, s, e in sec.meetings if s < start_pref or e > end_pref)
-        gap = compute_window(combo)
-        avg_rank = sum(ranking.get(sec.teacher, len(ranking)) for sec in combo)/len(combo)
-        raw.append((combo, avg_rank, gap, free_days, veto_cnt, vio_pref))
+        if hard_veto and veto_cnt > 0:
+            continue
+        # d) violaciones de horario preferido
+        vio = sum(
+            1
+            for sec in combo
+            for _, s, e in sec.meetings
+            if s < pref_start or e > pref_end
+        )
+        if hard_window and vio > 0:
+            continue
+        # e) ranking promedio y tamaño de “ventana”
+        avg_rank = sum(ranking.get(sec.teacher, len(ranking)) for sec in combo) / len(combo)
+        gap      = compute_window(combo)
 
-    if not raw:
+        metrics.append((combo, avg_rank, gap, free_days, veto_cnt, vio))
+
+    if not metrics:
         return []
+
+    # 2) Calcular máximos para normalizar (evitar divisiones por cero)
+    cols = list(zip(*[m[1:] for m in metrics]))
+    mx = [max(col) or 1 for col in cols]  # [max_avg_rank, max_gap, max_free, max_veto, max_vio]
+    total_w = sum(weights.values())
+
+    # 3) Normalizar y puntuar
+    scored = []
+    for combo, avg, gap, free, veto, vio in metrics:
+        n = {
+            'rank':   1 - (avg  / mx[0]),
+            'win':    1 - (gap  / mx[1]),
+            'off':    free   / mx[2],
+            'veto':   1 - (veto / mx[3]),
+            'window': 1 - (vio  / mx[4]),
+        }
+        score = sum(weights[k] * n[k] for k in weights) / total_w
+        scored.append((score, combo))
+
+    # 4) Ordenar y retornar
+    return sorted(scored, key=lambda x: x[0], reverse=True)
+
 
     # Find maxima for normalization
     mx_rank = max(r[1] for r in raw) or 1
