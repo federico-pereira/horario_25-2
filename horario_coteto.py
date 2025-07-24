@@ -12,6 +12,7 @@ import matplotlib.patches as patches
 
 st.set_page_config(layout="wide")
 st.title("Generador de Horarios - UAI")
+st.subtitle("Creado por Federico Pereira\nfedericopereirazz@gmail.com")
 
 # -------------------
 # Helpers & Parsers
