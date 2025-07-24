@@ -169,7 +169,7 @@ def main():
             st.sidebar.success("✅ CSV cargado desde GitHub")
         except Exception as e:
             st.sidebar.error(f"No se pudo cargar remoto: {e}")
-            source = "Local"
+            source = "Subir"
     if source == "Subir":
         uploaded = st.sidebar.file_uploader("Sube tu CSV", type="csv")
         if not uploaded:
