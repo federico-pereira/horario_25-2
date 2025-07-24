@@ -261,14 +261,14 @@ def main():
         if not sims:
             st.warning("No hay soluciones.")
         else:
+            st.header("Horario más afín")
+            visualize_schedule(sims[0][1])
             st.header("Top 5 Horarios por Similitud")
             for sim, combo in sims[:5]:
                 st.subheader(f"Similitud: {sim:.3f}")
                 for sec in combo:
                     st.write(sec)
                 st.markdown("---")
-            st.header("Horario más afín")
-            visualize_schedule(sims[0][1])
-
+            
 if __name__ == "__main__":
     main()
